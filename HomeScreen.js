@@ -5,6 +5,7 @@ import { Text,
   StyleSheet,
   AsyncStorage
 } from 'react-native';
+import { Card, TextInput } from 'react-native-paper'; 
 import { AuthContext } from './App';
 
 const HomeScreen = ({ navigation }) => {
@@ -12,14 +13,19 @@ const HomeScreen = ({ navigation }) => {
   const { signOut } = useContext(AuthContext);  
 
   return (
-    <View style={styles.viewLayout}>
-      <Text style={styles.textLayout}>SignedIn</Text>
-      <Button 
-        onPress={() => {
-          signOut();
-        }}
-        title='SignOut'/>
-    </View>
+    <>
+      <View style={styles.viewLayout}>
+        <Text style={styles.textLayout}>SignedIn</Text>
+        <Button 
+          onPress={() => {
+            signOut();
+          }}
+          title='SignOut'/>
+      </View>
+      <Card>
+        <Card.Title>HOME</Card.Title>
+      </Card>
+    </>
   );
 };
 

@@ -9,6 +9,8 @@ import { AsyncStorage } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-community/google-signin';
 import { LoginManager } from 'react-native-fbsdk';
+import { Provider as PaperProvider, Appbar } from 'react-native-paper';
+import theme from './Theme';
 
 const Stack = createStackNavigator();
 export const AuthContext = createContext();
@@ -55,7 +57,6 @@ const App: () => React$Node = () => {
       if (authData !== null) {
         setStatus({ 
           type: 'SIGN_IN',
-          isLoading: false,
           ...authData
         });
       }
@@ -74,8 +75,25 @@ const App: () => React$Node = () => {
         await AsyncStorage.setItem('authData', JSON.stringify({
           userData: data.userData,
         }));
+        try {
+          console.log(data.userData.token);
+          const result = await fetch('http://192.168.1.5:8080/verify',{
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              'token': data.userData.token
+            })
+          });
+          const verified = await result.json();
+          console.log(JSON.stringify(verified));
+        } catch (err) {
+          console.error(err);
+        }
         setStatus({ 
-          type: 'SIGN_IN', 
+          type: 'SIGN_IN',
           userData: data.userData,
         });
       },
@@ -96,25 +114,31 @@ const App: () => React$Node = () => {
 
   return (
     <AuthContext.Provider value={authContext}>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName='Login'>
-          {status.userData !== null ? (
-            <>
-              <Stack.Screen
-                name='Home'
-                component={HomeScreen}
-              />
-            </>
-          ) : (
-            <>
-              <Stack.Screen
-                name='Login'
-                component={LoginScreen}
-              />
-            </>
-          )}
-        </Stack.Navigator>
-      </NavigationContainer>
+      <PaperProvider theme={theme}>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName='Login'>
+            {status.userData !== null ? (
+              <>
+                <Stack.Screen
+                  name='Home'
+                  component={HomeScreen}
+                />
+              </>
+            ) : (
+              <>
+                <Stack.Screen
+                  name='Login'
+                  component={LoginScreen}
+                />
+                {/* <Stack.Screen
+                  name='Register'
+                  component={RegisterScreen}
+                /> */}
+              </>
+            )}
+          </Stack.Navigator>
+        </NavigationContainer>
+      </PaperProvider>
     </AuthContext.Provider>
   );
 };
