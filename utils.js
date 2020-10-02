@@ -1,5 +1,6 @@
 import React, { AsyncStorage } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { SERVER_HOSTNAME, SERVER_PORT } from './config';
 
 export const getStoredData = async () => {
   let authData = await AsyncStorage.getItem('authData');
@@ -10,7 +11,7 @@ export const getStoredData = async () => {
 export const post = async (url, body) => {
   try {
     let token = await auth().currentUser.getIdToken(true);
-    let response = await fetch(url, {
+    let response = await fetch(`${SERVER_HOSTNAME}:${SERVER_PORT}/${url}`, {
       method: 'POST',
       cache: 'no-cache',
       headers: {
@@ -35,7 +36,7 @@ export const post = async (url, body) => {
 export const get = async (url, idToken) => {
   try {
     let token = await auth().currentUser.getIdToken(true);
-    let response = await fetch(url, {
+    let response = await fetch(`${SERVER_HOSTNAME}:${SERVER_PORT}/${url}`, {
       method: 'GET',
       cache: 'no-cache',
       headers: {

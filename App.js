@@ -45,7 +45,7 @@ const App: () => React$Node = () => {
     const bootstrapAsync = async () => {
       try {
         if (auth().currentUser) {
-          const result = await get('http://192.168.1.7:8080/myDetails');
+          const result = await get('myDetails');
           if (result) {
             data = {
               userData: {

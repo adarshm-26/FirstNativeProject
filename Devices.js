@@ -7,6 +7,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from './App';
 import theme from './Theme';
+import { SERVER_HOSTNAME, SOCKETIO_PORT } from './config';
 
 const DevicesStack = createStackNavigator();
 
@@ -78,7 +79,7 @@ const ConfigureDevice = ({ route, navigation }) => {
   const [socketObj, setSocketObj] = React.useState('');
 
   React.useEffect(() => {
-    const socket = SocketIOClient('http://192.168.1.7:1337', {      
+    const socket = SocketIOClient(`${SERVER_HOSTNAME}:${SOCKETIO_PORT}`, {      
       transports: ['websocket'], 
       jsonp: false 
     });

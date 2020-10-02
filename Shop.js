@@ -65,7 +65,7 @@ const GetDevice = ({ route, navigation }) => {
   const { signIn } = React.useContext(AuthContext);
   const fetchDevices = async () => {
     try {
-      let result = await get('http://192.168.1.7:8080/store/getDevices');
+      let result = await get('store/getDevices');
       setDevices(result);
     } catch (e) {
       console.error(e);
@@ -80,7 +80,7 @@ const GetDevice = ({ route, navigation }) => {
       item={item}
       onPress={ async () => {
         try {
-          let result = await post('http://192.168.1.7:8080/store/buy', item);
+          let result = await post('store/buy', item);
           if (result) {
             let data = await getStoredData();
             signIn({

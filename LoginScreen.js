@@ -177,7 +177,7 @@ const LoginScreen = ({ navigation }) => {
 
 const verifyUser = async (token) => {
   try {
-    const result = await get('http://192.168.1.7:8080/myDetails');
+    const result = await get('myDetails');
     if (result)
       return result;
     else

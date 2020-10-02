@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Text, View, SafeAreaView, Picker } from 'react-native';
+import { Text, View, SafeAreaView, Picker, BackHandler } from 'react-native';
 import { Headline, Card } from 'react-native-paper';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -7,6 +7,7 @@ import { TextInputField, StyledButton } from './Components';
 import { AuthContext } from './App';
 import theme from './Theme';
 import { ScrollView } from 'react-native-gesture-handler';
+import { post } from './utils';
 
 const RegisterSchema = Yup.object().shape({
   firstname: Yup.string()
@@ -56,6 +57,13 @@ const RegisterScreen = ({ route, navigation }) => {
   } = route.params;
   const { signIn } = useContext(AuthContext);
 
+  React.useEffect(() => {
+    BackHandler.addEventListener('hardwareBackPress', () => {
+      alert('Please complete registration');
+      return true;
+    });
+  }, []);
+
   return (<SafeAreaView style={{ 
     backgroundColor: theme.colors.primary,
     flex: 1, 
@@ -72,7 +80,7 @@ const RegisterScreen = ({ route, navigation }) => {
         firstname: firstname,
         lastname: lastname,
         email: email,
-        gender: gender,
+        gender: gender || 'Male',
         age: age,
         phone: phone
       }}
@@ -161,7 +169,7 @@ const RegisterScreen = ({ route, navigation }) => {
                 disabled={route.params.age}
               />
               <Text style={{ color: 'red' }}>
-                {touched.age ? errors.age : ''}
+                {touched.age ? errors.age : '' }
               </Text>
             </View>
           </View>
@@ -173,7 +181,9 @@ const RegisterScreen = ({ route, navigation }) => {
               value={values.phone}
               disabled={route.params.phone}
             />
-            <Text style={{ color: 'red' }}>{errors.phone}</Text>
+            <Text style={{ color: 'red' }}>
+              {touched.phone ? errors.phone : '' }
+            </Text>
           </View>
           <View>
             <StyledButton 
@@ -191,9 +201,9 @@ const RegisterScreen = ({ route, navigation }) => {
 
 const recordUser = async (userDetails, token) => {
   try {
-    let response = await post('http://192.168.1.7:8080/record', userDetails);
+    let response = await post('record', userDetails);
     if (response) {
-      return response
+      return response;
     }
     else {
       throw Error('Write result of /record is null');
