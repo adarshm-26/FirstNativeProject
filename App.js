@@ -2,15 +2,14 @@ import 'react-native-gesture-handler';
 import React, { useState, useReducer, useEffect, createContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from './HomeScreen';
-import LoginScreen from './LoginScreen';
-import SplashScreen from './SplashScreen';
+import { HomeScreen, LoginScreen, SplashScreen, RegisterScreen } from './Screens';
 import { AsyncStorage } from 'react-native';
-import auth from '@react-native-firebase/auth';
+import auth, { firebase } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-community/google-signin';
 import { LoginManager } from 'react-native-fbsdk';
 import { Provider as PaperProvider, Appbar } from 'react-native-paper';
 import theme from './Theme';
+import { get } from './utils';
 
 const Stack = createStackNavigator();
 export const AuthContext = createContext();
@@ -38,29 +37,36 @@ const App: () => React$Node = () => {
     }
   );
 
-  // Setup Google Auth
   GoogleSignin.configure({
     webClientId: "480516264780-3qdu9ff0cfpcd2t54s9gof3s220if60v.apps.googleusercontent.com"
   });
 
-  // Try to restore user
   useEffect(() => {
     const bootstrapAsync = async () => {
-      let authData;
       try {
-        authData = await AsyncStorage.getItem('authData');
-        authData = JSON.parse(authData);
+        if (auth().currentUser) {
+          const result = await get('http://192.168.1.7:8080/myDetails');
+          if (result) {
+            data = {
+              userData: {
+                user: result,
+                token: auth().currentUser.getIdToken()
+              }
+            }
+            await AsyncStorage.setItem('authData', JSON.stringify(data));
+            if (result.registered) {
+              authContext.signIn(data);
+            }
+            else {
+              console.log('Unregistered user, will force signOut');
+              authContext.signOut();
+            }
+          }
+          else throw new Error('User unregistered');
+        }
+        else throw new Error('User not found');
       } catch (e) {
-        // Restoring token failed
-      }
-
-      if (authData !== null) {
-        setStatus({ 
-          type: 'SIGN_IN',
-          ...authData
-        });
-      }
-      else {
+        console.error(e);
         setStatus({
           type: 'SIGN_OUT',
         });
@@ -75,27 +81,11 @@ const App: () => React$Node = () => {
         await AsyncStorage.setItem('authData', JSON.stringify({
           userData: data.userData,
         }));
-        try {
-          console.log(data.userData.token);
-          const result = await fetch('http://192.168.1.5:8080/verify',{
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              'token': data.userData.token
-            })
-          });
-          const verified = await result.json();
-          console.log(JSON.stringify(verified));
-        } catch (err) {
-          console.error(err);
-        }
         setStatus({ 
           type: 'SIGN_IN',
           userData: data.userData,
         });
+        console.log('SignedIn...');
       },
       signOut: async () => {
         await GoogleSignin.signOut();   // Logout Google
@@ -103,6 +93,7 @@ const App: () => React$Node = () => {
         await AsyncStorage.removeItem('authData'); // Clear local token
         await auth().signOut();         // Signal firebase for logout
         setStatus({ type: 'SIGN_OUT' });
+        console.log('SignedOut...');
       }
     }),
     []
@@ -116,24 +107,26 @@ const App: () => React$Node = () => {
     <AuthContext.Provider value={authContext}>
       <PaperProvider theme={theme}>
         <NavigationContainer>
-          <Stack.Navigator initialRouteName='Login'>
+          <Stack.Navigator>
             {status.userData !== null ? (
-              <>
-                <Stack.Screen
-                  name='Home'
-                  component={HomeScreen}
-                />
-              </>
+              <Stack.Screen
+                name='Home'
+                options={{ headerShown: false }}
+                initialParams={{...status}}
+                component={HomeScreen}
+              />
             ) : (
               <>
                 <Stack.Screen
                   name='Login'
+                  options={{ headerShown: false }}
                   component={LoginScreen}
                 />
-                {/* <Stack.Screen
+                <Stack.Screen
                   name='Register'
+                  options={{ headerShown: false }}
                   component={RegisterScreen}
-                /> */}
+                />
               </>
             )}
           </Stack.Navigator>

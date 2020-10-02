@@ -1,22 +1,15 @@
 import React, { useState, useContext } from 'react';
-
-import { Text, 
-  View, 
-  // TextInput, 
-  // Button, 
-  SafeAreaView,
-  StyleSheet,
-  StatusBar
-} from 'react-native';
+import { View, SafeAreaView, StyleSheet } from 'react-native';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
-import { useTheme, Card, TextInput, Button } from 'react-native-paper';
+import { Card, Divider } from 'react-native-paper';
 import TextInputMask from 'react-native-text-input-mask';
-
+import { TextInputField, StyledButton } from './Components';
 import { AuthContext } from './App';
 import auth from '@react-native-firebase/auth';
-import { GoogleSignin,
-  GoogleSigninButton } from '@react-native-community/google-signin';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-community/google-signin';
 import { AccessToken, LoginButton } from 'react-native-fbsdk';
+import theme from './Theme';
+import { get } from './utils';
 
 const LoginScreen = ({ navigation }) => {
   
@@ -25,250 +18,182 @@ const LoginScreen = ({ navigation }) => {
   const [isSigninInProgress, setSigninProgress] = useState(false);
   const { signIn } = useContext(AuthContext);
   
-  const regexp = /^\+[0-9]?()[0-9](\s|\S)(\d[0-9]{8,16})$/;
+  const regexp = /^(\+\d{1,2})?1?\(?\d{3}\)?\d{3}?\d{3,4}$/;
   const [isFetchOtp, setIsFetchOtp] = useState(false);
+
+  const attemptSignIn = async (user, token) => {
+    if (user && token) {
+      const userDetails = await verifyUser(token);
+      console.log('Verifying with server');
+      if (userDetails && userDetails.registered) {
+        console.log('Already registered, moving to HomeScreen');
+        signIn({
+          userData: {
+            user: userDetails,
+            token: token
+          }
+        });
+      }
+      else if (userDetails) {
+        console.log('Unregistered user, moving to RegisterScreen');
+        navigation.navigate('Register', {
+          token: token,
+          ...userDetails
+        });
+      }
+      else {
+        console.warn('Unable to verify user');
+        alert('Could not verify user');
+      }
+    }
+    else {
+      console.error('Signin failed');
+      alert('SignIn attempt failed');
+    }
+  }
 
   return (
     <>
-      <SafeAreaView>
-        <Card style={{ margin: 20 }}>
-          <Card.Title title='Login'/>
+      <SafeAreaView style={{ 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: theme.colors.primary
+      }}>
+        <Card style={{ margin: 25, padding: 10, elevation: 4, height: isFetchOtp ? 450 : 380 }}>
+          <Card.Title title='Login' subtitle='using OTP'/>
           <Card.Content>
-            <TextInput 
+            <TextInputField
               label='Phone'
               value={phoneNumber}
-              onChangeText={text => setPhoneNumber(text)}
               render={props => 
                 <TextInputMask 
                   {...props}
-                  mask="+[00] [000][000][000]"
+                  onChangeText={(formatted, extracted) => {
+                    setPhoneNumber('+'+extracted);
+                  }}
+                  mask='+[00] [0000] [000] [000]'
                 />
               }
             />
             {
               isFetchOtp ?
-              <TextInput
+              <TextInputField
                 label='OTP'
                 value={otp}
                 onChangeText={otp => setOtp(otp)}
-              /> :
-              <>
-              </>
+              /> : <></>
             }
-            <Button
-              mode='contained'
-              title={ isFetchOtp ? 'SignIn' : 'Fetch OTP' }
+            <StyledButton
               onPress={ isFetchOtp ? 
-                () => setIsFetchOtp(true) :
                 async () => {
                   try {
                     setSigninProgress(true);
-                    
+                    console.log('Trying to sign in with: ' + phoneNumber);
                     const confirmationObj = await auth()
                       .signInWithPhoneNumber(phoneNumber);
                     const user = await confirmationObj.confirm(otp);
                     const token = await user.user.getIdToken();
                     
-                    if (user !== null) {
-                      signIn({
-                        userData: {
-                          user: user.user,
-                          token: token
-                        }
-                      });
-                    }
-                    else {
-                      alert('SignIn with OTP failed');
-                    }
+                    attemptSignIn(user, token);
                   } catch (error) {
                     console.error(error);
                   } finally {
                     setSigninProgress(false);
                     setIsFetchOtp(false);
                   }
-                }
+                } :
+                () => setIsFetchOtp(true)
               }
               disabled={ isFetchOtp ? 
                 isSigninInProgress : 
                 !regexp.test(phoneNumber)
               }
+              inner={ isFetchOtp ? 'SignIn' : 'Fetch OTP' }
             />
+            <Divider style={{ marginTop: 20, marginBottom: 10 }}/>
+            <GoogleSigninButton
+              style={{ width: 258, height: 48, alignSelf: 'center', margin: 10 }}
+              size={GoogleSigninButton.Size.Wide}
+              color={GoogleSigninButton.Color.Light}
+              onPress={ async () => {
+                try {
+                  setSigninProgress(true);
+
+                  const { idToken } = await GoogleSignin.signIn();
+                  const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+                  const user = await auth().signInWithCredential(googleCredential);
+                  const token = await user.user.getIdToken();
+                  
+                  attemptSignIn(user, token);
+                } catch (error) {
+                  console.error(error);
+                } finally {
+                  setSigninProgress(false);
+                }
+              }}
+              disabled={isSigninInProgress}
+              
+            />
+            <View style={styles.viewLayout}>
+              <LoginButton
+                permissions={['email','public_profile']}
+                style={{ width: 250, height: 34 }}
+                onLoginFinished={ async (error, result) => {
+                  if (error) {
+                    console.error(error);
+                  } else {
+                    try {
+                      setSigninProgress(true);
+                      
+                      let fbtoken, fbCredential;
+                      if (!result.isCancelled) {
+                        fbtoken = await AccessToken.getCurrentAccessToken();
+                      }
+
+                      if (fbtoken !== null) {
+                        fbCredential = auth.FacebookAuthProvider.credential(fbtoken.accessToken);
+                        const user = await auth().signInWithCredential(fbCredential);
+                        const token = await user.user.getIdToken();
+
+                        attemptSignIn(user, token);
+                      }
+                    } catch (error) {
+                      console.error(error);
+                    } finally {
+                      setSigninProgress(false);
+                    }
+                  }
+                }}
+              />
+            </View>
           </Card.Content>
         </Card>
         </SafeAreaView>
-
-        {/* <View style={styles.viewLayout}>
-        //   <View>
-        //     <TextInput
-        //       style={styles.textLayout}
-        //       placeholder='Enter Phone Number'
-        //       onChangeText={val => setPhoneNumber(val)}
-        //       defaultValue={phoneNumber}
-        //     />
-        //   </View>
-        //   {
-        //     isFetchOtp ?
-        //     <View>
-        //       <TextInput
-        //         style={styles.textLayout}
-        //         placeholder='Enter OTP'
-        //         onChangeText={val => setOtp(val)}
-        //         defaultValue={otp}
-        //       />
-        //       <Button 
-        //         style={styles.signInButtonViewLayout} 
-        //         onPress={ async () => {
-        //           try {
-        //             setSigninProgress(true);
-                    
-        //             const confirmationObj = await auth().signInWithPhoneNumber(phoneNumber);
-        //             const user = await confirmationObj.confirm(otp);
-        //             const token = await user.user.getIdToken();
-                    
-        //             if (user !== null) {
-        //               signIn({
-        //                 userData: {
-        //                   user: user.user,
-        //                   token: token
-        //                 }
-        //               });
-        //             }
-        //             else {
-        //               alert('SignIn with OTP failed');
-        //             }
-        //           } catch (error) {
-        //             console.error(error);
-        //           } finally {
-        //             setSigninProgress(false);
-        //             setIsFetchOtp(false);
-        //           }
-        //         }} 
-        //         title='Sign In'
-        //         disabled={isSigninInProgress}
-        //       />
-        //     </View> :
-        //     <View>
-        //       <Button
-        //         style={styles.signInButtonViewLayout} 
-        //         onPress={() => {
-        //           setIsFetchOtp(true);                  
-        //         }} 
-        //         title='Fetch OTP'
-        //         disabled={!regexp.test(phoneNumber)}
-        //       />
-        //     </View>
-        //   }
-        //   <View style={styles.signInButtonViewLayout}>
-        //     <GoogleSigninButton
-        //       onPress={ async () => {
-        //         try {
-        //           setSigninProgress(true);
-
-        //           const { idToken } = await GoogleSignin.signIn();
-        //           const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-
-        //           const user = await auth().signInWithCredential(googleCredential);
-        //           const token = await user.user.getIdToken();
-
-        //           if (user !== null) {
-        //             signIn({
-        //               userData: {
-        //                 user: user.user,
-        //                 token: token
-        //               }
-        //             });
-        //           }
-        //           else {
-        //             alert('Could SignIn through Google');
-        //           }
-        //         } catch (error) {
-        //           console.error(error);
-        //         } finally {
-        //           setSigninProgress(false);
-        //         }
-        //       }}
-        //       disabled={isSigninInProgress}
-        //     />
-        //   </View>
-        //   <View style={styles.signInButtonViewLayout}>
-        //     <LoginButton
-        //       permissions={['email']}
-        //       onLoginFinished={ async (error, result) => {
-        //         if (error) {
-        //           console.error(error);
-        //         } else {
-        //           try {
-        //             setSigninProgress(true);
-                    
-        //             let fbtoken, fbCredential;
-        //             if (!result.isCancelled) {
-        //               fbtoken = await AccessToken.getCurrentAccessToken();
-        //             }
-
-        //             if (fbtoken !== null) {
-        //               fbCredential = auth.FacebookAuthProvider.credential(fbtoken.accessToken);
-        //               const user = await auth().signInWithCredential(fbCredential);
-        //               const token = await user.user.getIdToken();
-
-        //               if (user !== null) {
-        //                 signIn({
-        //                   userData: {
-        //                     user: user.user,
-        //                     token: token
-        //                   }
-        //                 });
-        //               } else {
-        //                 alert('Could not SignIn through Facebook');
-        //               }
-        //             }
-        //           } catch (error) {
-        //             console.error(error);
-        //           } finally {
-        //             setSigninProgress(false);
-        //           }
-        //         }
-        //       }}
-        //     />
-        //   </View>
-        // </View> */}
     </>
   );
 };
 
+const verifyUser = async (token) => {
+  try {
+    const result = await get('http://192.168.1.7:8080/myDetails');
+    if (result)
+      return result;
+    else
+      throw new Error('Fetched user is null');
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.lighter,
-    flex:1, 
-    justifyContent: 'center', 
-    alignItems: 'center'
-  },
   viewLayout: {
-    padding: 10,
-    borderWidth: 1,
+    margin: 10,
     backgroundColor: Colors.white,
     alignSelf: 'center',
-  },
-  textLayout: {
-    height: 50,
-    width: 300,
-    fontSize: 24,
-    padding: 10,
-    margin: 10,
-    alignSelf: 'center',
-    borderStyle: 'solid',
-    borderRadius: 5,
-    borderWidth: 2
-  },
-  label: {
-    padding: 10,
-    fontSize: 24,
-    alignSelf: 'flex-start'
-  },
-  signInButtonViewLayout: {
-    justifyContent: 'center',
-    padding: 10,
-    alignSelf: 'center'
-  },
+  }
 });
 
 export default LoginScreen;
