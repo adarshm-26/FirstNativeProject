@@ -1,0 +1,26 @@
+{
+  "name": "firstnativeproject-backend",
+  "description": "Backend for FirstNativeProject React App",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "firebase-admin": "^9.1.1",
+    "google-auth-library": "^6.0.6",
+    "mongodb": "^3.5.7",
+    "socket.io": "^2.3.0",
+    "uuid": "^8.3.0",
+    "winston": "^3.2.1"
+  },
+  "scripts": {
+    "start": "node ./server/server.js"
+  },
+  "engines": {
+    "node": "13.7.0"
+  },
+  "main": "index.js",
+  "devDependencies": {},
+  "author": "adarshm1926",
+  "license": "ISC"
+}
